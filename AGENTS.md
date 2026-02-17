@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This repository is a security-first fullstack template for building HR systems.
+This repository is a security-first fullstack template for building systems.
 
 All contributors and coding agents must preserve the template's security model, service boundaries, and deployment contracts while extending domain features.
 
@@ -20,8 +20,6 @@ This template currently includes:
 - JWT + refresh rotation + CSRF protection
 - Optional DPoP-bound session enforcement
 - Optional TOTP MFA
-
-Do not reintroduce an IOC service in this template unless explicitly requested and fully designed.
 
 ## Non-Negotiable Architecture Rules
 
