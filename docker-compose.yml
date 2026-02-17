@@ -1,0 +1,170 @@
+version: "3.9"
+
+x-server-env: &server-env
+  NODE_ENV: ${NODE_ENV:-development}
+  PGHOST: postgres
+  PGPORT: ${PGPORT:-5432}
+  PGUSER: ${PGUSER:-hr_admin}
+  PGPASSWORD: ${PGPASSWORD:-hr_password}
+  PGDATABASE: ${PGDATABASE:-hr_system}
+  REDIS_ENABLED: ${REDIS_ENABLED:-true}
+  REDIS_HOST: ${REDIS_HOST:-redis}
+  REDIS_PORT: ${REDIS_PORT:-6379}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+  REDIS_DB: ${REDIS_DB:-0}
+  REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-hr-system}
+  JWT_SECRET: ${JWT_SECRET:-unsafe-dev-secret}
+  PSS_MASTER_KEY: ${PSS_MASTER_KEY:-unsafe-dev-master-key-32-bytes!!!!}
+  JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-900}
+  JWT_REFRESH_WINDOW_SECONDS: ${JWT_REFRESH_WINDOW_SECONDS:-3600}
+  REFRESH_TOKEN_TTL_SECONDS: ${REFRESH_TOKEN_TTL_SECONDS:-2592000}
+  AUTH_MAX_FAILED_LOGINS: ${AUTH_MAX_FAILED_LOGINS:-5}
+  AUTH_AUTO_UNLOCK_MINUTES: ${AUTH_AUTO_UNLOCK_MINUTES:-30}
+  MFA_TOTP_ISSUER: ${MFA_TOTP_ISSUER:-CorporateHR}
+  MFA_TOTP_PERIOD_SECONDS: ${MFA_TOTP_PERIOD_SECONDS:-30}
+  MFA_ENROLL_TTL_SECONDS: ${MFA_ENROLL_TTL_SECONDS:-600}
+  MFA_CHALLENGE_TTL_SECONDS: ${MFA_CHALLENGE_TTL_SECONDS:-300}
+  DPOP_NONCE_TTL_SECONDS: ${DPOP_NONCE_TTL_SECONDS:-120}
+  DPOP_PROOF_MAX_AGE_SECONDS: ${DPOP_PROOF_MAX_AGE_SECONDS:-300}
+
+services:
+  edge:
+    image: nginx:1.27-alpine
+    container_name: hr-edge
+    depends_on:
+      - client
+      - auth-service
+      - core-api
+      - tools-service
+      - reports-service
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/certs:/etc/nginx/certs:ro
+    networks:
+      - backend
+      - edge
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: hr-postgres
+    environment:
+      POSTGRES_USER: ${PGUSER:-hr_admin}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-hr_password}
+      POSTGRES_DB: ${PGDATABASE:-hr_system}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-hr_admin} -d ${PGDATABASE:-hr_system}"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    container_name: hr-redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    command:
+      [
+        "sh",
+        "-c",
+        "if [ -n \"$REDIS_PASSWORD\" ]; then redis-server --save \"\" --appendonly no --requirepass \"$REDIS_PASSWORD\"; else redis-server --save \"\" --appendonly no; fi"
+      ]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "if [ -n \"$REDIS_PASSWORD\" ]; then redis-cli -a \"$REDIS_PASSWORD\" ping; else redis-cli ping; fi"
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 8
+    networks:
+      - backend
+
+  auth-service:
+    build:
+      context: ./server
+      args:
+        SERVICE_ENTRY: auth-service
+    environment:
+      <<: *server-env
+      SERVICE_NAME: auth-service
+      SERVICE_PORT: ${AUTH_SERVICE_PORT:-3001}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+
+  core-api:
+    build:
+      context: ./server
+      args:
+        SERVICE_ENTRY: core-api
+    environment:
+      <<: *server-env
+      SERVICE_NAME: core-api
+      SERVICE_PORT: ${CORE_API_PORT:-3002}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
+  tools-service:
+    build:
+      context: ./server
+      args:
+        SERVICE_ENTRY: tools-service
+    environment:
+      <<: *server-env
+      SERVICE_NAME: tools-service
+      SERVICE_PORT: ${TOOLS_SERVICE_PORT:-3004}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
+  reports-service:
+    build:
+      context: ./server
+      args:
+        SERVICE_ENTRY: reports-service
+    environment:
+      <<: *server-env
+      SERVICE_NAME: reports-service
+      SERVICE_PORT: ${REPORTS_SERVICE_PORT:-3005}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
+  client:
+    build:
+      context: ./client
+    environment:
+      VITE_API_BASE: https://localhost/api
+    expose:
+      - "80"
+    networks:
+      - backend
+
+networks:
+  edge:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true
+
+volumes:
+  pg_data:
