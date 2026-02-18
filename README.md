@@ -15,14 +15,14 @@ This template provides:
 
 ## 1. Template Goals
 
-Use this template when you need to build a production-grade HR platform quickly while keeping security controls close to the defaults.
+Use this template when you need to build a production-grade platform quickly while keeping security controls close to the defaults.
 
 Primary goals:
 - Strong authentication and session lifecycle controls
 - Route-level authorization using backend-enforced RBAC
 - Isolation of concerns through service boundaries
 - Observable runtime behavior (health + audit)
-- A practical extension path for future HR domain modules
+- A practical extension path for future domain modules
 
 ## 2. Architecture
 
@@ -630,8 +630,8 @@ If issue persists:
 
 ## 26. Current Template Limits (Intentional)
 
-This template is a secure scaffold, not a full HR product. You still need to implement:
-- Actual HR domain models and business logic
+This template is a secure scaffold, not a full product. You still need to implement:
+- Actual domain models and business logic
 - Reporting storage/queue/file lifecycle
 - Settings mutation persistence logic
 - Full integration and end-to-end test suites
