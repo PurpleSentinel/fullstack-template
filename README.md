@@ -1,6 +1,6 @@
-# Security-First Fullstack HR Template
+# Security-First Fullstack Template
 
-A reusable fullstack template for corporate HR platforms with secure defaults and clear service boundaries.
+A reusable fullstack template for platforms with secure defaults and clear service boundaries.
 
 This template provides:
 - React SPA frontend behind nginx edge
